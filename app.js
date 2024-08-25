@@ -8,6 +8,7 @@ require("dotenv").config();
 const connectDB = require("./db/connect");
 const Company = require("./models/Company");
 const User = require("./models/User");
+const newJobsList = {};
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -15,8 +16,8 @@ const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASSWORD,
+    user: process.env.GMAIL_USER.toString(),
+    pass: process.env.GMAIL_PASSWORD.toString(),
   },
 });
 
@@ -30,7 +31,6 @@ function hashContent(content) {
 
 app.get("/fetch-html", async (req, res) => {
   const allUsers = await User.find({});
-  const newJobsList = {};
   const companies = await Company.find({});
   try {
     for (let company of companies) {
@@ -62,7 +62,7 @@ app.get("/fetch-html", async (req, res) => {
       });
 
       await browser.close();
-      const hash = hashContent(text);
+      let hash = hashContent(text);
 
       if (company.hash === "") {
         // first call for this link, no email should be sent.
@@ -119,8 +119,6 @@ function updateNewJobsList(userList, newlyAddedJobs, companyName, url) {
 
     newJobsList[user.email].jobs[companyName].jobs.push(...newlyAddedJobs);
   });
-
-  return userJobs;
 }
 
 async function llmCall(text) {
@@ -193,19 +191,20 @@ function sendConsolidatedEmails(userJobs) {
     Object.keys(user.jobs).forEach((companyName) => {
       emailHtml += `<br><a href="${user.jobs[companyName].url}" target="_blank"><strong>${companyName}</strong></a>:<br>`;
       user.jobs[companyName].jobs.forEach((job) => {
-        emailHtml += `&bullet; ${job.title}<br>`;
+        emailHtml += `• ${job}<br>`;
       });
     });
 
     emailHtml += `<br>Best Regards,<br>Cypress Job Hunt Team 🫡`;
 
     sendEmail(email, "Your daily job updates!", emailHtml);
+    console.log(`Email sent to ${user.name}`);
   });
 }
 
 function sendEmail(to, subject, htmlContent) {
   const mailOptions = {
-    from: process.env.GMAIL_USER,
+    from: process.env.GMAIL_USER.toString(),
     to,
     subject,
     html: htmlContent,
