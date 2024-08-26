@@ -29,7 +29,7 @@ function hashContent(content) {
   return crypto.createHash("sha256").update(content).digest("hex");
 }
 
-app.get("/fetch-html", async (req, res) => {
+const runDailyJobCheck = async () => {
   const allUsers = await User.find({});
   const companies = await Company.find({});
   try {
@@ -97,13 +97,13 @@ app.get("/fetch-html", async (req, res) => {
         }
       }
     }
-    res.send("AC");
+    console.log("AC");
     sendConsolidatedEmails(newJobsList);
   } catch (error) {
     console.error("Error fetching HTML:", error);
-    res.status(500).send("Error fetching HTML");
   }
-});
+  scheduleNextRun();
+};
 
 function updateNewJobsList(userList, newlyAddedJobs, companyName, url) {
   userList.forEach((user) => {
@@ -219,11 +219,23 @@ function sendEmail(to, subject, htmlContent) {
   });
 }
 
+const scheduleNextRun = () => {
+  const now = new Date();
+  const nextRun = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1
+  );
+  const delay = nextRun - now; // milliseconds until midnight
+  setTimeout(runDailyJobCheck, delay);
+};
+
 const port = process.env.PORT || 4000;
 
 const start = async () => {
   try {
     await connectDB(process.env.MONGO_URI);
+    scheduleNextRun();
     app.listen(port, () => {
       console.log(`Server started on port ${port}...`);
     });
